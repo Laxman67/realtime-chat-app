@@ -1,7 +1,8 @@
-import { z } from 'zod';
+// export const signupSchema = z.object({
+import Joi from 'joi';
 
-export const signupSchema = z.object({
-  fullName: z.string().min(3, 'Full name must be at least 3 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+export const signupSchema = Joi.object({
+  fullName: Joi.string().min(3).required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).required(),
 });
