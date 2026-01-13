@@ -7,6 +7,7 @@ import logger from './utils/logger.js'; // 👈 winston logger
 import connectDB from './database/db.js';
 import userRoutes from './routes/user.routes.js';
 import bodyParser from 'body-parser';
+import messageRouter from './routes/message.route.js';
 
 const app = express();
 
@@ -53,7 +54,11 @@ app.use(
 );
 
 // Routes
+
+// User Routes
 app.use('/api/v1/user', userRoutes);
+// Message Routes
+app.use('/api/v1/message', messageRouter);
 // Connection to DB
 connectDB();
 

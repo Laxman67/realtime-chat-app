@@ -143,6 +143,7 @@ export const updateProfile = catchAsyncError(async (req, res, next) => {
         avatar.tempFilePath,
         {
           folder: 'CHAT_APP_USERS_AVATARS',
+          resource_type: '',
           transformation: [
             { width: 300, height: 300, crop: 'limit' },
             { quality: 'auto' },
@@ -153,8 +154,8 @@ export const updateProfile = catchAsyncError(async (req, res, next) => {
 
       logger.info(cloudinaryResponse);
     } catch (error) {
-      logger.error(error);
-      logger.error(error.message);
+      logger.error('Cloudinary upload error', error);
+      console.log(error.message);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Failed to upload avatar, Please try again!',
