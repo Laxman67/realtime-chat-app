@@ -1,14 +1,20 @@
 import catchAsyncError from '../middlewares/catchAsyncError.middleware.js';
 import { StatusCodes, getReasonPhrase } from 'http-status-codes';
-import { signinSchema, signupSchema } from '../validators/auth.validator.js';
+import {
+  signinSchema,
+  signupSchema,
+  updateSchema,
+} from '../validators/auth.validator.js';
 import User from '../models/user.model.js';
 import { generateJsonWebToken } from '../utils/JWTToken.js';
+import { v2 as cloudinary } from 'cloudinary';
+import logger from '../utils/logger.js';
 
 export const signup = catchAsyncError(async (req, res) => {
   const { error, value } = signupSchema.validate(req.body);
 
   if (error) {
-    return res.status(400).json({
+    return res.status(StatusCodes.BAD_REQUEST).json({
       success: false,
       message: error.details[0].message,
     });
@@ -93,4 +99,92 @@ export const getUser = catchAsyncError(async (req, res, next) => {
     message: 'User Fetched Successfully',
   });
 });
-export const updateProfile = catchAsyncError(async (req, res, next) => {});
+export const updateProfile = catchAsyncError(async (req, res, next) => {
+  const { error, value } = updateSchema.validate(req.body);
+
+  if (error) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      success: false,
+      error: error.details[0].message,
+    });
+  }
+
+  // Implementation for avatar feature
+  const avatar = req?.files?.avatar;
+
+  let cloudinaryResponse = {};
+
+  if (avatar) {
+    try {
+      // Firstly delete the existing one
+      const oldAvatarPublicId = req.user.avatar.public_id;
+
+      if (
+        oldAvatarPublicId &&
+        oldAvatarPublicId !== '' &&
+        oldAvatarPublicId.length > 0
+      ) {
+        const deleteResult = await cloudinary.uploader.destroy(
+          oldAvatarPublicId
+        );
+        logger.info(deleteResult);
+      }
+
+      // Now update  cloudinaryResponse with new url string and public id
+      /**
+         *
+         *  fileUpload({
+             useTempFiles: true,
+             tempFileDir: './temp/',
+           })
+         *  file with avatar field
+         */
+      cloudinaryResponse = await cloudinary.uploader.upload(
+        avatar.tempFilePath,
+        {
+          folder: 'CHAT_APP_USERS_AVATARS',
+          transformation: [
+            { width: 300, height: 300, crop: 'limit' },
+            { quality: 'auto' },
+            { fetch_format: 'auto' },
+          ],
+        }
+      );
+
+      logger.info(cloudinaryResponse);
+    } catch (error) {
+      logger.error(error);
+      logger.error(error.message);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Failed to upload avatar, Please try again!',
+        error: error,
+      });
+    }
+  }
+
+  // Let create data object to update
+  let dataToUpdate = {
+    fullName: value.fullName,
+    email: value.email,
+  };
+
+  if (
+    avatar &&
+    cloudinaryResponse?.public_id &&
+    cloudinaryResponse?.secure_url
+  ) {
+    dataToUpdate.avatar = {
+      public_id: cloudinaryResponse.public_id,
+      url: cloudinaryResponse.secure_url,
+    };
+  }
+
+  const user = await User.findByIdAndUpdate(req.user._id, dataToUpdate, {
+    runValidators: true,
+    new: true,
+  });
+  res
+    .status(StatusCodes.CREATED)
+    .json({ success: true, user, message: 'User Updated Successfully' });
+});
