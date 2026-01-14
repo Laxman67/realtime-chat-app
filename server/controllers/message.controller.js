@@ -4,6 +4,7 @@ import User from '../models/user.model.js';
 import Message from '../models/message.model.js';
 import { v2 as cloudinary } from 'cloudinary';
 import logger from '../utils/logger.js';
+import { getActiveResourcesInfo } from 'process';
 
 export const getAllUsers = catchAsyncError(async (req, res, next) => {
   // const user = req.user;
@@ -15,6 +16,7 @@ export const getAllUsers = catchAsyncError(async (req, res, next) => {
     messages: 'All User fetched',
   });
 });
+
 export const getMessages = catchAsyncError(async (req, res, next) => {
   const receiverId = req.params.id;
   const myId = req.user._id;
@@ -36,6 +38,7 @@ export const getMessages = catchAsyncError(async (req, res, next) => {
     messages,
   });
 });
+
 export const sendMessages = catchAsyncError(async (req, res, next) => {
   const { text } = req.body;
   const media = req?.files?.media;
@@ -84,4 +87,21 @@ export const sendMessages = catchAsyncError(async (req, res, next) => {
       });
     }
   }
+  const newMessage = await Message.create({
+    senderId,
+    receiverId,
+    text: sanitizedText,
+    media: mediaUrl,
+  });
+
+  const receiverSocketId = getActiveResourcesInfo(receiverId);
+
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit('newMessage', newMessage);
+  }
+
+  res.status(StatusCodes.CREATED).json({
+    success: true,
+    newMessage,
+  });
 });
